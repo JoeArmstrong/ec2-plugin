@@ -23,8 +23,10 @@
  */
 package hudson.plugins.ec2;
 
+import org.apache.commons.io.FileUtils;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
 
 import static org.junit.Assert.assertEquals;
@@ -36,7 +38,7 @@ public class EC2PrivateKeyTest {
 
     @Test
     public void testFingerprint() throws IOException {
-        EC2PrivateKey k = new EC2PrivateKey("-----BEGIN RSA PRIVATE KEY-----\n"
+        String key = "-----BEGIN RSA PRIVATE KEY-----\n"
                 + "MIIEowIBAAKCAQEAlpK/pGxCRoHpbIObxYW53fl4qA+EQNHuSveNyxt+6m/HAdRLhEMGHe7/b7dR\n"
                 + "e8bnJLtJD7+rTyKnhIiAQ3ZKSAXUNjbcwnH/lxfT39ht/PkupK0Vbdzgdm4vYfciFsqO/H1T5WPb\n"
                 + "YRRPXcSWg5pInH7XtLOQxotXH5Kqrltvy+Fn6VmVCqJdFaRwWPAAPVbwlPmd7EHfsHNBNsYPV51D\n"
@@ -58,13 +60,19 @@ public class EC2PrivateKeyTest {
                 + "0cZ3kbJzHluG2igswL+F3zC1sFoCFtJLflnQJl+VO5HFKwKBgD5F/+paTIYc622xiDeCYsYfqnpq\n"
                 + "MpZJorRzNPGTxmv7Kg94kFh7h7zuccUcNn15iUpNRTwLUZpKArYcuU1bhnveBD4l+84XBii6mFjz\n"
                 + "9ontJin0nlHPk+AOmV8xt3yYD+wPAJy5MjUco7tS4Ix6bmvxcpZi2ZcHT1GwkiIzgKWE\n"
-                + "-----END RSA PRIVATE KEY-----");
+                + "-----END RSA PRIVATE KEY-----";
+
+        final File file = new File("/tmp/xxxxx.pem");
+        FileUtils.deleteQuietly(file);
+        FileUtils.writeStringToFile(file, key, "UTF-8");
+        EC2PrivateKey k = new EC2PrivateKey( "/tmp/xxxxx.pem");
         assertEquals("3c:ee:c2:12:57:5f:d0:73:79:38:d6:aa:ef:91:0a:b8:2c:5f:47:65", k.getFingerprint());
+        FileUtils.deleteQuietly(file);
     }
 
     @Test
     public void testPublicFingerprint() throws IOException {
-        EC2PrivateKey k = new EC2PrivateKey("-----BEGIN RSA PRIVATE KEY-----\n"
+        String key = "-----BEGIN RSA PRIVATE KEY-----\n"
                 + "MIIEowIBAAKCAQEAlpK/pGxCRoHpbIObxYW53fl4qA+EQNHuSveNyxt+6m/HAdRLhEMGHe7/b7dR\n"
                 + "e8bnJLtJD7+rTyKnhIiAQ3ZKSAXUNjbcwnH/lxfT39ht/PkupK0Vbdzgdm4vYfciFsqO/H1T5WPb\n"
                 + "YRRPXcSWg5pInH7XtLOQxotXH5Kqrltvy+Fn6VmVCqJdFaRwWPAAPVbwlPmd7EHfsHNBNsYPV51D\n"
@@ -86,7 +94,12 @@ public class EC2PrivateKeyTest {
                 + "0cZ3kbJzHluG2igswL+F3zC1sFoCFtJLflnQJl+VO5HFKwKBgD5F/+paTIYc622xiDeCYsYfqnpq\n"
                 + "MpZJorRzNPGTxmv7Kg94kFh7h7zuccUcNn15iUpNRTwLUZpKArYcuU1bhnveBD4l+84XBii6mFjz\n"
                 + "9ontJin0nlHPk+AOmV8xt3yYD+wPAJy5MjUco7tS4Ix6bmvxcpZi2ZcHT1GwkiIzgKWE\n"
-                + "-----END RSA PRIVATE KEY-----");
+                + "-----END RSA PRIVATE KEY-----";
+        final File file = new File("/tmp/xxxxx.pem");
+        FileUtils.deleteQuietly(file);
+        FileUtils.writeStringToFile(file, key, "UTF-8");
+        EC2PrivateKey k = new EC2PrivateKey( "/tmp/xxxxx.pem");
         assertEquals("e3:cc:f6:5d:0b:bb:8b:ca:32:12:fd:70:98:57:c0:21", k.getPublicFingerprint());
+        FileUtils.deleteQuietly(file);
     }
 }

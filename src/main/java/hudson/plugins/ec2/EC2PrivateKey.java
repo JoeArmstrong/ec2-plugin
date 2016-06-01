@@ -27,6 +27,7 @@ import hudson.util.Secret;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
@@ -38,8 +39,11 @@ import java.security.Key;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.Security;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.commons.codec.binary.Hex;
+import org.apache.commons.io.FileUtils;
 import org.bouncycastle.openssl.PEMReader;
 import org.bouncycastle.openssl.PasswordFinder;
 
@@ -55,18 +59,42 @@ import com.amazonaws.services.ec2.model.KeyPairInfo;
  * @author Kohsuke Kawaguchi
  */
 public class EC2PrivateKey {
+    private static final Logger LOGGER = Logger.getLogger(EC2PrivateKey.class.getName());
     private static final RuntimeException PRIVATE_KEY_WITH_PASSWORD = new RuntimeException();
+    private static final RuntimeException PRIVATE_KEY_FILE_FAILURE = new RuntimeException();
 
     private final Secret privateKey;
+    private final String privateKeyFile;
 
-    EC2PrivateKey(String privateKey) {
-        this.privateKey = Secret.fromString(privateKey.trim());
+    public EC2PrivateKey(String privateKeyFile) {
+        this.privateKeyFile = privateKeyFile;
+        this.privateKey = null; //Secret.fromString("Only on File System");
     }
 
     public String getPrivateKey() {
-        return privateKey.getPlainText();
+        return this.getPrivateKeyFromFile();
     }
 
+    private String getPrivateKeyFromFile() {
+        String theKey = null;
+        
+        if (privateKeyFile == null) {
+            throw PRIVATE_KEY_FILE_FAILURE;
+        }
+        if ( privateKeyFile.startsWith("/")) {
+            LOGGER.log(Level.INFO, "Using SSH private key from file: " + privateKeyFile);
+            try {
+                theKey = FileUtils.readFileToString(new File(privateKeyFile), "UTF-8");
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "Failed to read SSH Key file: " + privateKeyFile, e);
+                throw PRIVATE_KEY_FILE_FAILURE;
+            }
+        } else {
+            theKey = privateKeyFile;
+        }
+        return theKey.trim();
+    }
+    
     /**
      * Obtains the fingerprint of the key in the "ab:cd:ef:...:12" format.
      */
@@ -75,7 +103,7 @@ public class EC2PrivateKey {
      */
     public String getFingerprint() throws IOException {
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-        Reader r = new BufferedReader(new StringReader(privateKey.getPlainText()));
+        Reader r = new BufferedReader(new StringReader(getPrivateKey()));
         PEMReader pem = new PEMReader(r, new PasswordFinder() {
             public char[] getPassword() {
                 throw PRIVATE_KEY_WITH_PASSWORD;
@@ -99,7 +127,7 @@ public class EC2PrivateKey {
 
     public String getPublicFingerprint() throws IOException {
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-        Reader r = new BufferedReader(new StringReader(privateKey.getPlainText()));
+        Reader r = new BufferedReader(new StringReader(getPrivateKey()));
         PEMReader pem = new PEMReader(r, new PasswordFinder() {
             public char[] getPassword() {
                 throw PRIVATE_KEY_WITH_PASSWORD;
@@ -125,7 +153,7 @@ public class EC2PrivateKey {
      * Is this file really a private key?
      */
     public boolean isPrivateKey() throws IOException {
-        BufferedReader br = new BufferedReader(new StringReader(privateKey.getPlainText()));
+        BufferedReader br = new BufferedReader(new StringReader(getPrivateKey()));
         String line;
         while ((line = br.readLine()) != null) {
             if (line.equals("-----BEGIN RSA PRIVATE KEY-----"))
@@ -145,14 +173,14 @@ public class EC2PrivateKey {
                 com.amazonaws.services.ec2.model.KeyPair keyPair = new com.amazonaws.services.ec2.model.KeyPair();
                 keyPair.setKeyName(kp.getKeyName());
                 keyPair.setKeyFingerprint(fp);
-                keyPair.setKeyMaterial(Secret.toString(privateKey));
+                keyPair.setKeyMaterial(getPrivateKey());
                 return keyPair;
             }
             if (kp.getKeyFingerprint().equalsIgnoreCase(pfp)) {
                 com.amazonaws.services.ec2.model.KeyPair keyPair = new com.amazonaws.services.ec2.model.KeyPair();
                 keyPair.setKeyName(kp.getKeyName());
                 keyPair.setKeyFingerprint(pfp);
-                keyPair.setKeyMaterial(Secret.toString(privateKey));
+                keyPair.setKeyMaterial(getPrivateKey());
                 return keyPair;
             }
         }
@@ -161,17 +189,17 @@ public class EC2PrivateKey {
 
     @Override
     public int hashCode() {
-        return privateKey.hashCode();
+        return Secret.fromString(getPrivateKey()).hashCode();
     }
 
     @Override
     public boolean equals(Object that) {
-        return this.getClass() == that.getClass() && this.privateKey.equals(((EC2PrivateKey) that).privateKey);
+        return this.getClass() == that.getClass() && this.getPrivateKey().equals(((EC2PrivateKey) that).getPrivateKey());
     }
 
     @Override
     public String toString() {
-        return privateKey.getPlainText();
+        return getPrivateKey();
     }
 
     /* package */static String digest(PrivateKey k) throws IOException {

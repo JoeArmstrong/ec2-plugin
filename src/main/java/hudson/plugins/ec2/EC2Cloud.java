@@ -159,6 +159,7 @@ public abstract class EC2Cloud extends Cloud {
     private transient Secret secretKey;
 
     protected final EC2PrivateKey privateKey;
+    protected final String privateKeyFile;
 
     /**
      * Upper bound on how many instances we may provision.
@@ -173,12 +174,13 @@ public abstract class EC2Cloud extends Cloud {
 
     private static AWSCredentialsProvider awsCredentialsProvider;
 
-    protected EC2Cloud(String id, boolean useInstanceProfileForCredentials, String credentialsId, String privateKey,
+    protected EC2Cloud(String id, boolean useInstanceProfileForCredentials, String credentialsId, String privateKeyFile,
             String instanceCapStr, List<? extends SlaveTemplate> templates) {
         super(id);
         this.useInstanceProfileForCredentials = useInstanceProfileForCredentials;
         this.credentialsId = credentialsId;
-        this.privateKey = new EC2PrivateKey(privateKey);
+        this.privateKeyFile = privateKeyFile;
+        this.privateKey = new EC2PrivateKey(privateKeyFile);
 
         if (templates == null) {
             this.templates = Collections.emptyList();
@@ -259,6 +261,10 @@ public abstract class EC2Cloud extends Cloud {
         return credentialsId;
     }
 
+    public String getPrivateKeyFile() {
+        return privateKeyFile;
+    }
+    
     public EC2PrivateKey getPrivateKey() {
         return privateKey;
     }
@@ -490,7 +496,7 @@ public abstract class EC2Cloud extends Cloud {
          * allocated, we don't look at that instance as available for provisioning.
          */
         int possibleSlavesCount = getPossibleNewSlavesCount(template);
-        if (possibleSlavesCount < 0) {
+        if (possibleSlavesCount <= 0) {
             LOGGER.log(Level.INFO, "Cannot provision - no capacity for instances: " + possibleSlavesCount);
             return null;
         }
@@ -702,8 +708,18 @@ public abstract class EC2Cloud extends Cloud {
 
             return FormValidation.ok();
         }
-
+        
+        public FormValidation doCheckPrivateKeyFile(@QueryParameter String value) throws IOException, ServletException {
+            if (value.startsWith("/")) {
+                return FormValidation.ok();
+            } else {
+                return FormValidation
+                        .error("The private key file must be an absolute path");
+            }
+        }
+        
         public FormValidation doCheckPrivateKey(@QueryParameter String value) throws IOException, ServletException {
+/*
             boolean hasStart = false, hasEnd = false;
             BufferedReader br = new BufferedReader(new StringReader(value));
             String line;
@@ -718,6 +734,7 @@ public abstract class EC2Cloud extends Cloud {
             if (!hasEnd)
                 return FormValidation
                         .error("The private key is missing the trailing 'END RSA PRIVATE KEY' marker. Copy&paste error?");
+ */
             return FormValidation.ok();
         }
 
